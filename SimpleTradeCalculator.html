@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en-US">
+    <head>
+        <meta charset="utf-8">
+        <title>Trade Calculator</title>
+        <style>
+            body {
+                background-color: #404040;
+                color: white;
+            }
+            #calc {
+                margin: 25px 0px 0px 25px;
+                background-color:  	#808080;
+                width: 375px;
+                border-radius: 8px;
+                box-shadow: 2px 2px #505050;
+            }
+            p {
+                text-align: center;
+                font-size: small;
+                text-decoration: underline;
+            }
+            span {
+                display: inline-block;
+                text-align: left;
+            }
+            span.right {
+                margin-left: 5px;
+                vertical-align: top;
+            }
+            span.left {
+                margin-right: 5px;
+                vertical-align: top;
+            }
+            input {
+                width: 150px;
+            }
+            #trade-info {
+                padding-top: 0.01px;
+            }
+            #buttons {
+                border-top: 1px solid white;
+                border-bottom: 1px solid white;
+                padding: 10px 5px 10px 5px;
+                text-align: center;
+            }
+            #risk-management {
+                border-top: 1px solid white;
+            }
+            #pnl {
+                border-top: 1px solid white;
+            }
+            .elem {
+                padding: 0px 5px 10px 5px;
+                text-align: center;
+            }
+            #buttons input {
+                width: 120px;
+            }
+            #sel_radio input {
+                width: 25px;
+            }
+            #sel_radio br {
+                margin-bottom: 5px;
+            }
+            input::-webkit-outer-spin-button,
+            input::-webkit-inner-spin-button {
+              -webkit-appearance: none;
+              margin: 0;
+            }
+            input[type=number] {
+              -moz-appearance: textfield;
+            }
+        </style>
+    </head>
+    <body>
+        <div>
+            <script>
+                function clearCalc() {
+                    document.getElementById("size").value = '';
+                    document.getElementById("margin").value = '';
+                    document.getElementById("rr").value = '';
+                    document.getElementById("rr").style.backgroundColor = document.getElementById("profit").style.backgroundColor;
+                    document.getElementById("profit").value = '';
+                    document.getElementById("profit_usdt").value = '';
+                    document.getElementById("loss").value = '';
+                    document.getElementById("loss_usdt").value = '';
+                };
+
+                function handleSubmit() {
+
+                    // Get input args
+                    var stoploss = parseFloat(document.getElementById("stoploss").value);
+                    var entry = parseFloat(document.getElementById("entry").value);
+                    var takeprofit = parseFloat(document.getElementById("takeprofit").value);
+                    var lev = parseInt(document.getElementById("leverage").value);
+                    var type = "long";
+                    var elems = document.getElementsByName('type');
+                    for(i = 0; i < elems.length; i++) {
+                        if(elems[i].checked) {
+                            type = elems[i].value;
+                        }
+                    }
+                    var balance = parseFloat(document.getElementById("balance").value);
+                    var risk = parseFloat(document.getElementById("risk").value);
+
+                    // Validate input args
+                    var valid = true;
+                    if ((isNaN(takeprofit) == false) && (isNaN(entry) == false) && (isNaN(stoploss) == false) && (isNaN(balance) == false) && (isNaN(risk) == false) && (isNaN(lev) == false) && ((type === "long") || (type === "short"))) {
+                        if ((takeprofit >= 0) && (entry >= 0) && (stoploss >= 0) && (balance >= 0) && (risk >= 0) && (lev >= 0)) {
+                            if (lev >= 1) {
+                                if ((type === "long") && !((stoploss < entry) && (entry < takeprofit))) {
+                                    valid = false;
+                                    alert("stoploss < entry < takeprofit");
+                                }
+                                if ((type === "short") && !((stoploss > entry) && (entry > takeprofit))) {
+                                    valid = false;
+                                    alert("stoploss > entry > takeprofit");
+                                }
+                            } else {
+                                valid = false;
+                                alert("Leverage must be >= 1");
+                            }
+                        } else {
+                            valid = false;
+                            alert("All numbers must be positive");
+                        }
+                    } else {
+                        valid = false;
+                        alert("Illegal value entered (not a number)");
+                    }
+
+                    // Calculate
+                    if ((type === "long") && (valid == true)) {
+                        var rr = (takeprofit - entry) / (entry - stoploss);
+                        document.getElementById("rr").value = rr.toFixed(2);
+                        if (rr >= 2.0) {
+                            document.getElementById("rr").style.backgroundColor = "green";
+                        } else {
+                            if (rr >= 1.5) {
+                                document.getElementById("rr").style.backgroundColor = "yellow";
+                            } else {
+                                document.getElementById("rr").style.backgroundColor = "red";
+                            }
+                        }
+
+                        var loss_usdt = (balance * risk / 100);
+                        document.getElementById("loss_usdt").value = loss_usdt.toFixed(2);
+                        var lev_margin = (loss_usdt / (entry - stoploss)) * entry;
+                        var margin = lev_margin / lev;
+                        document.getElementById("margin").value = margin.toFixed(2);
+                        var loss = 100 * loss_usdt / margin;
+                        document.getElementById("loss").value = loss.toFixed(2);
+                        if (margin > balance) {
+                            clearCalc();
+                            alert("Insufficient balance");
+                        } else {
+                            if (loss_usdt > margin) {
+                                clearCalc();
+                                alert("Leverage too high - Liquidation before stop loss");
+                            } else {
+                                var profit_usdt = loss_usdt * rr;
+                                document.getElementById("profit_usdt").value = profit_usdt.toFixed(2);
+                                var profit = 100 * profit_usdt / margin;
+                                document.getElementById("profit").value = profit.toFixed(2);
+                                var size = lev_margin / entry
+                                document.getElementById("size").value = size.toFixed(8);
+                            }
+                        }
+                    }
+                    if ((type === "short") && (valid == true)) {
+                        var rr = (entry - takeprofit) / (stoploss - entry);
+                        document.getElementById("rr").value = rr.toFixed(2);
+                        if (rr >= 2.0) {
+                            document.getElementById("rr").style.backgroundColor = "green";
+                        } else {
+                            if (rr >= 1.5) {
+                                document.getElementById("rr").style.backgroundColor = "yellow";
+                            } else {
+                                document.getElementById("rr").style.backgroundColor = "red";
+                            }
+                        }
+
+                        var loss_usdt = (balance * risk / 100);
+                        document.getElementById("loss_usdt").value = loss_usdt.toFixed(2);
+                        var lev_margin = (loss_usdt / (stoploss - entry)) * entry;
+                        var margin = lev_margin / lev;
+                        document.getElementById("margin").value = margin.toFixed(2);
+                        var loss = 100 * loss_usdt / margin;
+                        document.getElementById("loss").value = loss.toFixed(2);
+                        if (margin > balance) {
+                            clearCalc();
+                            alert("Insufficient balance");
+                        } else {
+                            if (loss_usdt > margin) {
+                                clearCalc();
+                                alert("Leverage too high - Liquidation before stop loss");
+                            } else {
+                                var profit_usdt = loss_usdt * rr;
+                                document.getElementById("profit_usdt").value = profit_usdt.toFixed(2);
+                                var profit = 100 * profit_usdt / margin;
+                                document.getElementById("profit").value = profit.toFixed(2);
+                                var size = lev_margin / entry
+                                document.getElementById("size").value = size.toFixed(8);
+                            }
+                        }
+                    }
+                };
+
+                function handleReset() {
+                    document.getElementById("stoploss").value = 0;
+                    document.getElementById("entry").value = 0;
+                    document.getElementById("takeprofit").value = 0;
+                    document.getElementById("leverage").value = 1;
+                    document.getElementById("long").checked = true;
+
+                    document.getElementById("balance").value = 10000;
+                    document.getElementById("risk").value = 2;
+
+                    document.getElementById("size").value = '';
+                    document.getElementById("margin").value = '';
+                    document.getElementById("rr").value = '';
+                    document.getElementById("rr").style.backgroundColor = document.getElementById("profit").style.backgroundColor;
+                    document.getElementById("profit").value = '';
+                    document.getElementById("profit_usdt").value = '';
+                    document.getElementById("loss").value = '';
+                    document.getElementById("loss_usdt").value = '';
+                };
+            </script>
+            <div id=calc>
+                <div class="elem" id="trade-info">
+                    <p>Info about the Trade</p>
+                    <span class="left">
+                        <span>
+                            <label for="takeprofit">Take-Profit:</label><br>
+                            <input type="number" min="0" step="0.00000001" id="takeprofit" name="takeprofit" value="0">
+                        </span>
+                        <br><br>  
+                        <span>
+                            <label for="entry">Entry:</label><br>
+                            <input type="number" min="0" step="0.00000001" id="entry" name="entry" value="0">
+                        </span>
+                        <br><br>        
+                        <span>
+                            <label for="stoploss">Stop-Loss:</label><br>
+                            <input type="number" min="0" step="0.00000001" id="stoploss" name="stoploss" value="0">
+                        </span>
+                    </span>
+                    <span class="right">
+                        <span>
+                            <label for="leverage">Leverage:</label><br>
+                            <input type="number" min="1" step="1" id="leverage" name="leverage" value="1">
+                        </span>
+                        <br><br>
+                        <span id="sel_radio">
+                            <label for="type">Type:</label><br>
+                            <label for="long"><input type="radio" id="long" name="type" value="long" checked>long</label>
+                            <label for="short"><input type="radio" id="short" name="type" value="short">short</label>
+                        </span>
+                    </span>
+                </div>
+                <div class="elem" id="risk-management">
+                    <p>Risk Management</p>
+                    <span class="left">
+                        <label for="acc_size">Balance:</label><br>
+                        <input type="number" min="0" step="0.01" id="balance" name="balance" value="10000">
+                    </span>
+                    <span class="right">
+                        <label for="risk">Risk in %:</label><br>
+                        <input type="number" min="0" step="0.01" id="risk" name="risk" value="2">
+                    </span>
+                </div>
+                <div class="elem" id="buttons">
+                    <input type="submit" value="Calculate" onclick="handleSubmit()">
+                    <input type="reset" value="Reset" onclick="handleReset()">
+                </div>
+                <div class="elem" id="calc-result">
+                    <p>Results</p>
+                    <span class="left">
+                        <span>
+                            <label for="size">Size (Asset):</label><br>
+                            <input type="number" min="0" step="0.00000001" id="size" name="size" readonly="true">
+                        </span>
+                        <br><br>
+                        <span>
+                            <label for="margin">Isolated Margin:</label><br>
+                            <input type="number" min="0" step="0.01" id="margin" name="margin" readonly="true">
+                        </span>
+                    </span>
+                    <span class="right">
+                        <span>
+                            <label for="rr">Risk-Reward-Ratio:</label><br>
+                            <input type="number" min="0" step="0.01" id="rr" name="rr" readonly="true">
+                        </span>
+                    </span>
+                </div>
+                <div class="elem" id="pnl">
+                    <p>PNL</p>
+                    <span class="left">
+                        <span>
+                            <label for="profit_usdt">Profit:</label><br>
+                            <input type="number" min="0" step="0.01" id="profit_usdt" name="profit_usdt" readonly="true">
+                        </span>
+                        <br><br>
+                        <span>
+                            <label for="profit">Profit in %:</label><br>
+                            <input type="number" min="0" step="0.01" id="profit" name="profit" readonly="true">
+                        </span>
+                    </span>
+                    <span class="right">
+                        <span>
+                            <label for="loss_usdt">Loss:</label><br>
+                            <input type="number" min="0" step="0.01" id="loss_usdt" name="loss_usdt" readonly="true">
+                        </span>
+                        <br><br>
+                        <span>
+                            <label for="loss">Loss in %:</label><br>
+                            <input type="number" min="0" step="0.01" id="loss" name="loss" readonly="true">
+                        </span>
+                    </span>
+               </div>
+        </div>
+    </body>
+</html>
